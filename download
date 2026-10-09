@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.edge-*/
+*-check.png
+.vite-server*.log
+.env.local
+.env.*.local
+.DS_Store
