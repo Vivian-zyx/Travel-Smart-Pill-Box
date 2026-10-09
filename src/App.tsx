@@ -40,7 +40,7 @@ import {
   tripDays,
 } from './lib/date';
 import { loadData, saveData } from './lib/storage';
-import { getPrescriptionOcrStatus, mockPrescriptionOcrService, prescriptionOcrService } from './services/prescriptionOcr';
+import { mockPrescriptionOcrService, prescriptionOcrService } from './services/prescriptionOcr';
 import type { AppData, DoseLog, Medication, OcrDraft, Trip } from './types';
 
 type View = 'home' | 'create' | 'trip' | 'travel' | 'review';
@@ -251,7 +251,7 @@ function App() {
         </Modal>
       )}
       {selectedTrip && overlay === 'ocr' && (
-        <Modal title="上传药单并创建草稿" eyebrow="AI 识别 · 结果需由用户核对" onClose={() => setOverlay(null)} wide>
+        <Modal title="上传药单并创建草稿" eyebrow="本机 OCR · 结果需由用户核对" onClose={() => setOverlay(null)} wide>
           <OcrMedicationForm trip={selectedTrip} onSubmit={addMedications} />
         </Modal>
       )}
@@ -506,7 +506,7 @@ function TripDetailPage({ trip, medications, onBack, onOpenOverlay, onPack, onUn
         <div className="section-heading"><div><p className="eyebrow">添加药品</p><h2>准备带什么？</h2></div></div>
         <div className="add-grid">
           <button className="add-card" onClick={() => onOpenOverlay('manual')}><span className="add-card__icon add-card__icon--green"><Pill size={23} /></span><span><strong>手动添加计划</strong><small>按你已确认的用药安排填写</small></span><ChevronRight size={18} /></button>
-          <button className="add-card" onClick={() => onOpenOverlay('ocr')}><span className="add-card__icon add-card__icon--blue"><FileImage size={23} /></span><span><strong>上传医院药单</strong><small>AI 提取并生成可编辑草稿</small></span><span className="mock-chip">AI</span><ChevronRight size={18} /></button>
+          <button className="add-card" onClick={() => onOpenOverlay('ocr')}><span className="add-card__icon add-card__icon--blue"><FileImage size={23} /></span><span><strong>上传医院药单</strong><small>本机识别并生成可编辑草稿</small></span><span className="mock-chip">OCR</span><ChevronRight size={18} /></button>
           <button className="add-card" onClick={() => onOpenOverlay('backup')}><span className="add-card__icon add-card__icon--amber"><Box size={23} /></span><span><strong>添加备用药</strong><small>按场景浏览药品目录</small></span><ChevronRight size={18} /></button>
         </div>
       </section>
@@ -626,22 +626,13 @@ function OcrMedicationForm({ trip, onSubmit }: { trip: Trip; onSubmit: (medicati
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState('');
   const [drafts, setDrafts] = useState<OcrDraft[]>([]);
-  const [draftSource, setDraftSource] = useState<'deepseek' | 'mock' | null>(null);
-  const [aiStatus, setAiStatus] = useState<{ configured: boolean; model: string } | null>(null);
+  const [draftSource, setDraftSource] = useState<'local' | 'mock' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [startDate, setStartDate] = useState(trip.startDate);
   const [endDate, setEndDate] = useState(trip.endDate);
 
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
-  useEffect(() => {
-    let active = true;
-    getPrescriptionOcrStatus().then((status) => {
-      if (active) setAiStatus({ configured: status.configured, model: status.model });
-    });
-    return () => { active = false; };
-  }, []);
-
   const chooseFile = (nextFile?: File) => {
     if (!nextFile) return;
     if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(nextFile.type)) return setError('请选择 JPG、PNG、GIF 或 WebP 图片');
@@ -658,12 +649,12 @@ function OcrMedicationForm({ trip, onSubmit }: { trip: Trip; onSubmit: (medicati
     setDrafts((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
   };
 
-  const createDrafts = async (source: 'deepseek' | 'mock') => {
+  const createDrafts = async (source: 'local' | 'mock') => {
     if (!file) return setError('请先上传一张药单图片');
     setIsLoading(true);
     setError('');
     try {
-      const nextDrafts = source === 'deepseek'
+      const nextDrafts = source === 'local'
         ? await prescriptionOcrService.createDrafts(file)
         : await mockPrescriptionOcrService.createDrafts(file);
       setDrafts(nextDrafts);
@@ -707,7 +698,7 @@ function OcrMedicationForm({ trip, onSubmit }: { trip: Trip; onSubmit: (medicati
 
   return (
     <form className="stack-form" onSubmit={submit}>
-      <div className={`mock-banner ${aiStatus?.configured ? 'mock-banner--live' : ''}`}><span className="mock-banner__icon"><Sparkles size={18} /></span><div><strong>{aiStatus === null ? '正在检查识别服务…' : aiStatus.configured ? 'DeepSeek 图像识别已接入' : '当前使用离线 Mock OCR'}</strong><p>{aiStatus?.configured ? '识别结果会按药品逐项展示；只有点击识别按钮后，图片才会发送至 DeepSeek API。' : '未检测到服务端密钥时会使用包含两项药品的固定草稿，不会把图片发送到外部。'}</p></div><span className="mock-chip">{aiStatus?.configured ? `${aiStatus.model} · 待确认` : 'Mock'}</span></div>
+      <div className="mock-banner mock-banner--live"><span className="mock-banner__icon"><Sparkles size={18} /></span><div><strong>本机药单识别</strong><p>图片只在当前设备处理，不会上传到服务器。首次识别可能需要稍等。</p></div><span className="mock-chip">本机 OCR</span></div>
       <div className="ocr-layout">
         <div>
           {!file ? (
@@ -715,12 +706,12 @@ function OcrMedicationForm({ trip, onSubmit }: { trip: Trip; onSubmit: (medicati
           ) : (
             <div className="image-preview"><img src={preview} alt="用户上传的药单预览" /><div className="image-preview__footer"><span><FileImage size={16} /> {file.name}</span><button type="button" className="text-button" onClick={() => { setFile(null); setDrafts([]); setDraftSource(null); setPreview(''); }}>移除 / 重传</button></div></div>
           )}
-          <button type="button" className={aiStatus?.configured ? 'primary-button full-button' : 'secondary-button full-button'} disabled={!file || isLoading || aiStatus === null} onClick={() => createDrafts(aiStatus?.configured ? 'deepseek' : 'mock')}>{isLoading ? <><span className="spinner" /> {aiStatus?.configured ? '正在识别全部药品…' : '正在加载演示草稿…'}</> : aiStatus?.configured ? <><Sparkles size={17} /> 使用 DeepSeek 识别全部药品</> : <><Sparkles size={17} /> 生成 Mock 识别草稿</>}</button>
-          {aiStatus?.configured && <button type="button" className="text-button ocr-fallback" disabled={!file || isLoading} onClick={() => createDrafts('mock')}>不上传，改用离线演示草稿</button>}
+          <button type="button" className="primary-button full-button" disabled={!file || isLoading} onClick={() => createDrafts('local')}>{isLoading ? <><span className="spinner" /> 正在识别药单…</> : <><Sparkles size={17} /> 识别药单全部药品</>}</button>
+          <button type="button" className="text-button ocr-fallback" disabled={!file || isLoading} onClick={() => createDrafts('mock')}>不用识别，改用固定演示草稿</button>
         </div>
         <div className={`draft-panel ${drafts.length === 0 ? 'draft-panel--empty' : ''}`}>
           {drafts.length === 0 ? <div><ClipboardCheck size={30} /><h3>识别到的全部药品会显示在这里</h3><p>每种药单独显示；看不清的字段会留空，不会省略其他药品。</p></div> : <>
-            <div className="draft-panel__header"><div><p className="eyebrow">{draftSource === 'deepseek' ? 'DeepSeek 识别结果' : '固定演示结果'}</p><h3>共识别 {drafts.length} 项，请逐项核对</h3></div><span className="review-badge">待用户确认</span></div>
+            <div className="draft-panel__header"><div><p className="eyebrow">{draftSource === 'local' ? '本机 OCR 识别结果' : '固定演示结果'}</p><h3>共识别 {drafts.length} 项，请逐项核对</h3></div><span className="review-badge">待用户确认</span></div>
             <div className="ocr-draft-list">{drafts.map((draft, draftIndex) => <article className="ocr-draft-card" key={draftIndex}>
               <div className="ocr-draft-card__header"><strong>第 {draftIndex + 1} 项</strong>{drafts.length > 1 && <button type="button" className="text-button text-button--muted" onClick={() => setDrafts((current) => current.filter((_, index) => index !== draftIndex))}><Trash2 size={14} /> 移除</button>}</div>
               {draft.warnings && draft.warnings.length > 0 && <div className="ocr-warnings">{draft.warnings.map((warning, warningIndex) => <p key={warningIndex}><Info size={14} /> {warning}</p>)}</div>}

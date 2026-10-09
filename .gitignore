@@ -6,6 +6,5 @@ dist/
 .vite-server*.log
 .env
 .env.*
-!.env.example
 .vercel/
 .DS_Store

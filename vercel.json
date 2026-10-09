@@ -1,9 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "api/prescription-ocr.ts": {
-      "maxDuration": 90,
-      "supportsCancellation": true
-    }
-  }
-}
