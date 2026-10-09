@@ -4,6 +4,8 @@ dist/
 .edge-*/
 *-check.png
 .vite-server*.log
-.env.local
-.env.*.local
+.env
+.env.*
+!.env.example
+.vercel/
 .DS_Store

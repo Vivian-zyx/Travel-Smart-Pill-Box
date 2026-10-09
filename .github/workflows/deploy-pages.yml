@@ -29,7 +29,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 11.25.0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -42,6 +42,8 @@ jobs:
 
       - name: Build website
         run: pnpm build
+        env:
+          VITE_BASE_PATH: /Travel-Smart-Pill-Box/
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

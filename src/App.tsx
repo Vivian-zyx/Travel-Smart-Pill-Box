@@ -506,7 +506,7 @@ function TripDetailPage({ trip, medications, onBack, onOpenOverlay, onPack, onUn
         <div className="section-heading"><div><p className="eyebrow">添加药品</p><h2>准备带什么？</h2></div></div>
         <div className="add-grid">
           <button className="add-card" onClick={() => onOpenOverlay('manual')}><span className="add-card__icon add-card__icon--green"><Pill size={23} /></span><span><strong>手动添加计划</strong><small>按你已确认的用药安排填写</small></span><ChevronRight size={18} /></button>
-          <button className="add-card" onClick={() => onOpenOverlay('ocr')}><span className="add-card__icon add-card__icon--blue"><FileImage size={23} /></span><span><strong>上传医院药单</strong><small>生成可编辑的 Mock 草稿</small></span><span className="mock-chip">Mock</span><ChevronRight size={18} /></button>
+          <button className="add-card" onClick={() => onOpenOverlay('ocr')}><span className="add-card__icon add-card__icon--blue"><FileImage size={23} /></span><span><strong>上传医院药单</strong><small>AI 提取并生成可编辑草稿</small></span><span className="mock-chip">AI</span><ChevronRight size={18} /></button>
           <button className="add-card" onClick={() => onOpenOverlay('backup')}><span className="add-card__icon add-card__icon--amber"><Box size={23} /></span><span><strong>添加备用药</strong><small>按场景浏览药品目录</small></span><ChevronRight size={18} /></button>
         </div>
       </section>
@@ -644,7 +644,8 @@ function OcrMedicationForm({ trip, onSubmit }: { trip: Trip; onSubmit: (medicati
 
   const chooseFile = (nextFile?: File) => {
     if (!nextFile) return;
-    if (!nextFile.type.startsWith('image/')) return setError('请选择图片文件');
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(nextFile.type)) return setError('请选择 JPG、PNG、GIF 或 WebP 图片');
+    if (nextFile.size > 20 * 1024 * 1024) return setError('原图超过 20 MB，请裁剪或压缩后重试');
     if (preview) URL.revokeObjectURL(preview);
     setFile(nextFile);
     setPreview(URL.createObjectURL(nextFile));
@@ -710,7 +711,7 @@ function OcrMedicationForm({ trip, onSubmit }: { trip: Trip; onSubmit: (medicati
       <div className="ocr-layout">
         <div>
           {!file ? (
-            <label className="drop-zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); chooseFile(e.dataTransfer.files[0]); }}><UploadCloud size={30} /><strong>上传医院药单图片</strong><span>点击选择，或将图片拖到这里</span><small>支持 JPG、PNG 等图片格式</small><input type="file" accept="image/*" onChange={(e) => chooseFile(e.target.files?.[0])} /></label>
+            <label className="drop-zone" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); chooseFile(e.dataTransfer.files[0]); }}><UploadCloud size={30} /><strong>上传医院药单图片</strong><span>点击选择，或将图片拖到这里</span><small>支持 JPG、PNG、GIF、WebP；大图会在本机自动压缩</small><input type="file" accept="image/jpeg,image/png,image/gif,image/webp" onChange={(e) => chooseFile(e.target.files?.[0])} /></label>
           ) : (
             <div className="image-preview"><img src={preview} alt="用户上传的药单预览" /><div className="image-preview__footer"><span><FileImage size={16} /> {file.name}</span><button type="button" className="text-button" onClick={() => { setFile(null); setDrafts([]); setDraftSource(null); setPreview(''); }}>移除 / 重传</button></div></div>
           )}

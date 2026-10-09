@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { deepseekProxyPlugin } from './server/deepseekProxy.ts';
 
 export default defineConfig(({ mode }) => ({
-  // GitHub Pages 将站点部署在仓库子路径下；开发环境仍从根路径运行。
-  base: mode === 'production' ? '/Travel-Smart-Pill-Box/' : '/',
+  // Vercel 与本地使用根路径；GitHub Actions 显式注入仓库子路径。
+  base: mode === 'production' ? process.env.VITE_BASE_PATH || '/' : '/',
   plugins: [react(), deepseekProxyPlugin(mode)],
 }));

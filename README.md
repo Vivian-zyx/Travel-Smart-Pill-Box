@@ -1,6 +1,20 @@
 # 旅药记｜智能药盒旅行用药原型
 
-一个基于 Vite、React 与 TypeScript 的手机端旅行用药原型。界面固定采用移动应用的单列布局、顶部 App 栏、底部标签导航和底部抽屉表单；即使在电脑浏览器中打开，也会以居中的手机宽度呈现。数据保存在当前浏览器的 `localStorage` 中，不需要后端。
+一个基于 Vite、React 与 TypeScript 的手机端旅行用药原型。界面固定采用移动应用的单列布局、顶部 App 栏、底部标签导航和底部抽屉表单；即使在电脑浏览器中打开，也会以居中的手机宽度呈现。业务数据保存在当前浏览器的 `localStorage` 中；只有药单 AI 识别会调用服务端代理。
+
+## 一键部署到 Vercel（线上 AI 可用）
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FVivian-zyx%2FTravel-Smart-Pill-Box&env=DEEPSEEK_API_KEY&envDescription=DeepSeek%20API%20Key%EF%BC%8C%E4%BB%85%E4%BF%9D%E5%AD%98%E5%9C%A8%20Vercel%20%E6%9C%8D%E5%8A%A1%E7%AB%AF&envLink=https%3A%2F%2Fplatform.deepseek.com%2Fapi_keys)
+
+1. 点击上方按钮并登录 Vercel。
+2. 保持 Framework Preset 为 **Vite**，填写 `DEEPSEEK_API_KEY`。
+3. 点击 **Deploy**。`DEEPSEEK_MODEL` 不填时默认使用 `deepseek-flash`。
+4. 部署完成后访问 `https://你的域名/api/ai/status`。看到 `"configured":true` 即表示服务端已读取密钥。
+5. 回到首页，创建旅行后进入“上传医院药单”，按钮应显示“使用 DeepSeek 识别全部药品”。
+
+Vercel 会将 `api/ai/status.ts` 和 `api/prescription-ocr.ts` 部署为 Functions。API Key 不会进入浏览器构建产物。药单大图会先在浏览器本机压缩，以避免超过 Vercel Functions 的请求体限制。
+
+> `configured: true` 只能证明密钥已配置。首次上线后仍应使用一张不含敏感信息的测试图片完成实际识别，以确认密钥有效、账户余额充足且 DeepSeek 服务可访问。
 
 ## 本地运行
 
@@ -11,7 +25,7 @@ pnpm dev
 
 打开终端输出的本地地址（通常为 `http://localhost:5173`）。
 
-DeepSeek 配置保存在不会提交到 Git 的 `.env.local` 中。变量示例见 `.env.example`；密钥只由本地 Vite 服务端中间件读取，禁止使用 `VITE_` 前缀，以免进入浏览器构建产物。
+复制 `.env.example` 为 `.env.local`，填入自己的 DeepSeek API Key。密钥只由本地 Vite 服务端中间件读取，禁止使用 `VITE_` 前缀，以免进入浏览器构建产物。
 
 生产构建与类型检查：
 
@@ -41,9 +55,22 @@ pnpm build
 - 药盒装入状态由用户手动确认，没有连接硬件或传感器。
 - 所有药品信息只用于演示交互，不提供诊断、处方、个性化推荐、剂量或疗程调整建议。
 
-## 升级为真实能力时需要
+## 服务端结构与安全
 
-当前 DeepSeek 图像识别通过本地服务端代理接入。若上线部署，需要把同一代理逻辑迁移到受控后端或 Serverless Function，并在服务端配置 `DEEPSEEK_API_KEY`。真实药品目录仍需经审核的数据来源、说明书字段、OTC / 处方标识、更新与审核责任。
+- 本地开发由 `server/deepseekProxy.ts` 提供 `/api` 中间件。
+- Vercel 生产环境由 `api/` 下的 Serverless Functions 提供相同接口。
+- 两种环境共用 `server/deepseekCore.ts`，避免本地与线上识别逻辑不一致。
+- 接口限制为同源浏览器调用，并校验图片格式、请求大小和模型输出；但公开网站仍可能遭到脚本滥用。正式开放前请在 Vercel 与 DeepSeek 控制台设置预算告警、用量上限，并按需要增加登录、持久化限流或 WAF。
+- 药单可能包含健康和身份信息。正式收集真实用户数据前，需要补充明确同意、隐私政策、数据保留规则和访问控制。
+- 真实药品目录仍需经审核的数据来源、说明书字段、OTC / 处方标识、更新与审核责任。
+
+## 常见问题
+
+- 页面显示 Mock：先打开 `/api/ai/status`。若为 `configured: false`，在 Vercel 的 Production、Preview 环境中添加 `DEEPSEEK_API_KEY` 后重新部署。
+- 返回 401 或 403：检查 DeepSeek Key 是否有效，以及对应账户权限。
+- 返回 402 或余额相关错误：为 DeepSeek 账户充值或调整用量设置。
+- 返回 413：裁剪药单无关区域后再上传。浏览器会自动压缩大图，但极端尺寸或浏览器不支持解码时仍可能失败。
+- 请求超时：稍后重试，并在 Vercel Functions 日志和 DeepSeek 控制台检查请求状态。
 
 ## 部署到 GitHub Pages
 
@@ -51,4 +78,4 @@ pnpm build
 
 首次部署时，在 GitHub 仓库中打开 **Settings → Pages**，将 **Source** 设置为 **GitHub Actions**。不要直接把 `dist`、`node_modules` 或 `.env.local` 上传到仓库，也不要拆散 `src`、`server` 和 `.github` 文件夹。
 
-GitHub Pages 只提供静态托管，不能运行本项目的本地 DeepSeek 代理。静态页面上线后会自动使用 Mock 识别；若要在线启用 DeepSeek，需要另外部署服务端代理，并通过服务端环境变量保存 API Key。
+GitHub Pages 只提供静态托管，不能运行本项目的 DeepSeek 代理，因此 Pages 版本会自动使用 Mock 识别。这是预期行为；需要线上 AI 时请使用上方的 Vercel 部署。
